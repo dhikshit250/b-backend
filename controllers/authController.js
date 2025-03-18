@@ -62,7 +62,45 @@ exports.login = async (req, res) => {
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
+};exports.login = async (req, res) => {
+  const { identifier, password } = req.body; // Accept identifier instead of email
+
+  try {
+    // Check if user exists (by email or username)
+    const userResult = await pool.query(
+      "SELECT * FROM users WHERE email = $1 OR username = $1", 
+      [identifier]
+    );
+
+    if (userResult.rows.length === 0) 
+      return res.status(401).json({ error: "User not found!" });
+
+    const user = userResult.rows[0];
+
+    // Check if password matches
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) return res.status(401).json({ error: "Invalid password!" });
+
+    // Generate JWT token
+    const token = jwt.sign({ userId: user.id }, process.env.SECRET_KEY, { expiresIn: "1h" });
+
+    // Send user details along with token
+    res.json({
+      message: "Login successful!",
+      token,
+      user: {
+        id: user.id,
+        username: user.username,
+        email: user.email,
+        profile_pic: user.profile_pic,
+        bio: user.bio,
+      },
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
 };
+
 
 // Fetch User Profile
 exports.getUserProfile = async (req, res) => {
